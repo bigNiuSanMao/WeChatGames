@@ -58,6 +58,12 @@ class LobbyScene {
       ctx.textAlign = 'center';
       ctx.fillText(card.status === 'active' ? '可试玩' : '预留中', card.x + 71, card.y + 41);
 
+      const icon = this.app.assets && this.app.assets.getImage ? this.app.assets.getImage(card.icon) : null;
+      if (icon) {
+        const size = 64;
+        ctx.drawImage(icon, card.x + card.width - size - 22, card.y + 22, size, size);
+      }
+
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 30px sans-serif';
       ctx.textAlign = 'left';

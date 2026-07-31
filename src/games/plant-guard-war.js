@@ -5,8 +5,10 @@ const PLANT_TYPES = {
     cost: 100,
     hp: 110,
     color: '#50c95a',
+    sprite: 'plantShooter',
     fireRate: 1.15,
-    damage: 24
+    damage: 24,
+    bulletColor: '#2d7a36'
   },
   sun: {
     key: 'sun',
@@ -14,6 +16,7 @@ const PLANT_TYPES = {
     cost: 50,
     hp: 90,
     color: '#ffd34d',
+    sprite: 'plantSun',
     incomeRate: 5.5,
     income: 25
   },
@@ -22,7 +25,32 @@ const PLANT_TYPES = {
     name: '坚果藤',
     cost: 75,
     hp: 260,
-    color: '#d7a270'
+    color: '#d7a270',
+    sprite: 'plantWall'
+  },
+  ice: {
+    key: 'ice',
+    name: '寒冰草',
+    cost: 125,
+    hp: 100,
+    color: '#83e5ff',
+    sprite: 'plantIce',
+    fireRate: 1.55,
+    damage: 18,
+    slowFactor: 0.55,
+    slowDuration: 1.8,
+    bulletColor: '#49b8ff'
+  },
+  bomb: {
+    key: 'bomb',
+    name: '爆爆果',
+    cost: 150,
+    hp: 80,
+    color: '#ff6b6b',
+    sprite: 'plantBomb',
+    armTime: 0.8,
+    radius: 1.15,
+    damage: 120
   }
 };
 
@@ -39,6 +67,7 @@ class PlantGuardWar {
     this.plants = [];
     this.enemies = [];
     this.bullets = [];
+    this.effects = [];
     this.grid = {};
     this.elapsed = 0;
     this.spawnElapsed = 0;
@@ -76,6 +105,7 @@ class PlantGuardWar {
     this.updatePlants(dt);
     this.updateBullets(dt);
     this.updateEnemies(dt);
+    this.updateEffects(dt);
     this.cleanup();
 
     if (this.defeated >= this.targetDefeats && this.enemies.length === 0) {
@@ -96,7 +126,29 @@ class PlantGuardWar {
             y: plant.y,
             radius: 8,
             damage: PLANT_TYPES.shooter.damage,
-            speed: this.layout.cellWidth * 3.9
+            speed: this.layout.cellWidth * 3.9,
+            color: PLANT_TYPES.shooter.bulletColor,
+            slowFactor: 0,
+            slowDuration: 0
+          });
+        }
+      }
+
+      if (plant.type === 'ice') {
+        const hasEnemy = this.enemies.some((enemy) => enemy.row === plant.row && enemy.x > plant.x - 12);
+        plant.cooldown -= dt;
+        if (hasEnemy && plant.cooldown <= 0) {
+          plant.cooldown = PLANT_TYPES.ice.fireRate;
+          this.bullets.push({
+            row: plant.row,
+            x: plant.x + this.layout.cellWidth * 0.18,
+            y: plant.y,
+            radius: 8,
+            damage: PLANT_TYPES.ice.damage,
+            speed: this.layout.cellWidth * 3.6,
+            color: PLANT_TYPES.ice.bulletColor,
+            slowFactor: PLANT_TYPES.ice.slowFactor,
+            slowDuration: PLANT_TYPES.ice.slowDuration
           });
         }
       }
@@ -107,6 +159,27 @@ class PlantGuardWar {
           plant.cooldown = PLANT_TYPES.sun.incomeRate;
           this.sun += PLANT_TYPES.sun.income;
         }
+      }
+
+      if (plant.type === 'bomb') {
+        plant.armTick -= dt;
+        if (plant.armTick > 0) {
+          return;
+        }
+
+        const radiusPx = Math.max(this.layout.cellWidth, this.layout.cellHeight) * PLANT_TYPES.bomb.radius;
+        const hasTarget = this.enemies.some((enemy) => {
+          const dx = enemy.x - plant.x;
+          const dy = enemy.y - plant.y;
+          return Math.sqrt(dx * dx + dy * dy) <= radiusPx;
+        });
+        if (!hasTarget) {
+          return;
+        }
+
+        this.explodeAt(plant.x, plant.y, radiusPx, PLANT_TYPES.bomb.damage);
+        plant.dead = true;
+        delete this.grid[this.gridKey(plant.row, plant.col)];
       }
     });
   }
@@ -119,6 +192,10 @@ class PlantGuardWar {
       );
       if (target) {
         target.hp -= bullet.damage;
+        if (bullet.slowFactor > 0 && bullet.slowDuration > 0) {
+          target.slowTick = Math.max(target.slowTick || 0, bullet.slowDuration);
+          target.slowFactor = Math.min(target.slowFactor || 1, bullet.slowFactor);
+        }
         bullet.dead = true;
       }
     });
@@ -140,10 +217,25 @@ class PlantGuardWar {
         return;
       }
 
-      enemy.x -= enemy.speed * dt;
+      if (enemy.slowTick && enemy.slowTick > 0) {
+        enemy.slowTick -= dt;
+        if (enemy.slowTick <= 0) {
+          enemy.slowTick = 0;
+          enemy.slowFactor = 1;
+        }
+      }
+
+      const moveFactor = enemy.slowFactor ? enemy.slowFactor : 1;
+      enemy.x -= enemy.speed * moveFactor * dt;
       if (enemy.x <= this.layout.boardX - 14) {
         this.state = 'lose';
       }
+    });
+  }
+
+  updateEffects(dt) {
+    this.effects.forEach((effect) => {
+      effect.tick -= dt;
     });
   }
 
@@ -159,23 +251,34 @@ class PlantGuardWar {
       this.defeated += 1;
       return false;
     });
+
+    this.effects = this.effects.filter((effect) => effect.tick > 0);
   }
 
   spawnEnemy() {
     const row = Math.floor(Math.random() * this.layout.rows);
-    const strong = this.spawned > 6 && Math.random() > 0.65;
+    const roll = Math.random();
+    const strong = this.spawned > 6 && roll > 0.72;
+    const fast = this.spawned > 3 && roll > 0.5 && roll <= 0.72;
+    const tank = this.spawned > 10 && roll > 0.86;
     this.spawned += 1;
+    const type = tank ? 'tank' : strong ? 'armored' : fast ? 'fast' : 'walker';
+    const stats = this.getEnemyStats(type);
     this.enemies.push({
       row,
       x: this.layout.boardX + this.layout.boardWidth + 25,
       y: this.layout.boardY + this.layout.cellHeight * (row + 0.5),
-      width: strong ? 62 : 54,
-      height: strong ? 74 : 66,
-      hp: strong ? 170 : 100,
-      speed: strong ? 24 : 32,
-      damage: strong ? 22 : 12,
+      width: stats.width,
+      height: stats.height,
+      hp: stats.hp,
+      baseHp: stats.hp,
+      speed: stats.speed,
+      damage: stats.damage,
       attackTick: 0.55,
-      type: strong ? 'bucket' : 'walker'
+      type,
+      sprite: stats.sprite,
+      slowTick: 0,
+      slowFactor: 1
     });
   }
 
@@ -224,7 +327,8 @@ class PlantGuardWar {
       hp: type.hp,
       x: center.x,
       y: center.y,
-      cooldown: type.key === 'shooter' ? 0.4 : type.key === 'sun' ? 3.2 : 0
+      cooldown: type.key === 'shooter' ? 0.4 : type.key === 'ice' ? 0.7 : type.key === 'sun' ? 3.2 : 0,
+      armTick: type.key === 'bomb' ? PLANT_TYPES.bomb.armTime : 0
     };
 
     this.sun -= type.cost;
@@ -243,6 +347,7 @@ class PlantGuardWar {
     this.drawPlants(ctx);
     this.drawBullets(ctx);
     this.drawEnemies(ctx);
+    this.drawEffects(ctx);
     this.drawSidebar(ctx);
 
     if (this.state !== 'playing') {
@@ -344,17 +449,14 @@ class PlantGuardWar {
       const selected = this.selectedPlant === card.type;
       ctx.fillStyle = selected ? '#fff7cf' : 'rgba(17, 49, 29, 0.78)';
       this.roundRect(ctx, card.x, card.y, card.width, card.height, 18, true);
-      ctx.fillStyle = plant.color;
-      ctx.beginPath();
-      ctx.arc(card.x + 28, card.y + card.height / 2, 16, 0, Math.PI * 2);
-      ctx.fill();
+      this.drawSprite(ctx, plant.sprite, card.x + 10, card.y + 10, 54, 54, plant.color);
 
       ctx.fillStyle = selected ? '#1a2b12' : '#ffffff';
       ctx.font = 'bold 22px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(plant.name, card.x + 52, card.y + 30);
+      ctx.fillText(plant.name, card.x + 68, card.y + 30);
       ctx.font = '18px sans-serif';
-      ctx.fillText('消耗 ' + plant.cost, card.x + 52, card.y + 56);
+      ctx.fillText('消耗 ' + plant.cost, card.x + 68, card.y + 56);
     });
 
     ctx.fillStyle = 'rgba(17, 49, 29, 0.8)';
@@ -376,28 +478,24 @@ class PlantGuardWar {
     ctx.fillText('每 4 秒获得 25 阳光', this.layout.infoCard.x + 18, this.layout.infoCard.y + 114);
   }
 
+  drawEffects(ctx) {
+    this.effects.forEach((effect) => {
+      if (effect.type === 'explosion') {
+        const ratio = Math.max(0, Math.min(1, effect.tick / effect.total));
+        const radius = effect.radius * (1.1 - ratio * 0.45);
+        ctx.fillStyle = 'rgba(255, 140, 80, ' + (0.45 * ratio) + ')';
+        ctx.beginPath();
+        ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  }
+
   drawPlants(ctx) {
     this.plants.forEach((plant) => {
       const spec = PLANT_TYPES[plant.type];
-      const radius = plant.type === 'wall' ? 28 : 24;
-      ctx.fillStyle = spec.color;
-      ctx.beginPath();
-      ctx.arc(plant.x, plant.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (plant.type === 'sun') {
-        ctx.fillStyle = '#fff4a3';
-        ctx.beginPath();
-        ctx.arc(plant.x, plant.y, 11, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (plant.type === 'shooter') {
-        ctx.fillStyle = '#2f6d36';
-        ctx.beginPath();
-        ctx.arc(plant.x + 10, plant.y - 4, 7, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      const size = plant.type === 'wall' ? 68 : plant.type === 'bomb' ? 62 : 58;
+      this.drawSprite(ctx, spec.sprite, plant.x - size / 2, plant.y - size / 2, size, size, spec.color);
 
       ctx.fillStyle = 'rgba(0,0,0,0.22)';
       ctx.fillRect(plant.x - 24, plant.y + 28, 48, 6);
@@ -406,12 +504,21 @@ class PlantGuardWar {
       ctx.fillStyle = '#63f57b';
       const maxHp = PLANT_TYPES[plant.type].hp;
       ctx.fillRect(plant.x - 24, plant.y + 28, (48 * Math.max(0, plant.hp)) / maxHp, 6);
+
+      if (plant.type === 'bomb' && plant.armTick > 0) {
+        ctx.fillStyle = 'rgba(15, 25, 16, 0.7)';
+        this.roundRect(ctx, plant.x - 24, plant.y - 44, 48, 18, 9, true);
+        ctx.fillStyle = '#fffbe3';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('准备', plant.x, plant.y - 30);
+      }
     });
   }
 
   drawBullets(ctx) {
-    ctx.fillStyle = '#2d7a36';
     this.bullets.forEach((bullet) => {
+      ctx.fillStyle = bullet.color || '#2d7a36';
       ctx.beginPath();
       ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
       ctx.fill();
@@ -420,17 +527,22 @@ class PlantGuardWar {
 
   drawEnemies(ctx) {
     this.enemies.forEach((enemy) => {
-      ctx.fillStyle = enemy.type === 'bucket' ? '#6d6f88' : '#7f6b63';
-      ctx.fillRect(enemy.x - enemy.width / 2, enemy.y - enemy.height / 2, enemy.width, enemy.height);
-
-      ctx.fillStyle = enemy.type === 'bucket' ? '#aeb4cc' : '#d2b1a1';
-      ctx.fillRect(enemy.x - enemy.width * 0.22, enemy.y - enemy.height * 0.18, enemy.width * 0.44, enemy.height * 0.32);
+      const tint = enemy.type === 'armored' ? '#6d6f88' : enemy.type === 'tank' ? '#8b6e63' : '#7f6b63';
+      const size = Math.max(enemy.width, enemy.height) + 18;
+      this.drawSprite(ctx, enemy.sprite, enemy.x - size / 2, enemy.y - size / 2, size, size, tint);
 
       ctx.fillStyle = 'rgba(0,0,0,0.26)';
       ctx.fillRect(enemy.x - 28, enemy.y + enemy.height / 2 + 10, 56, 6);
       ctx.fillStyle = '#63f57b';
-      const hpBase = enemy.type === 'bucket' ? 170 : 100;
-      ctx.fillRect(enemy.x - 28, enemy.y + enemy.height / 2 + 10, (56 * Math.max(0, enemy.hp)) / hpBase, 6);
+      const hpBase = enemy.baseHp || enemy.hp;
+      ctx.fillRect(enemy.x - 28, enemy.y + enemy.height / 2 + 10, (56 * Math.max(0, enemy.hp)) / Math.max(1, hpBase), 6);
+
+      if (enemy.slowTick && enemy.slowTick > 0) {
+        ctx.fillStyle = 'rgba(73, 184, 255, 0.35)';
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, size * 0.42, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
   }
 
@@ -497,9 +609,11 @@ class PlantGuardWar {
       seedCards: [
         { x: 24, y: 122, width: 170, height: 74, type: 'sun' },
         { x: 24, y: 210, width: 170, height: 74, type: 'shooter' },
-        { x: 24, y: 298, width: 170, height: 74, type: 'wall' }
+        { x: 24, y: 298, width: 170, height: 74, type: 'wall' },
+        { x: 24, y: 386, width: 170, height: 74, type: 'ice' },
+        { x: 24, y: 474, width: 170, height: 74, type: 'bomb' }
       ],
-      infoCard: { x: 24, y: 392, width: 170, height: 132 },
+      infoCard: { x: 24, y: 566, width: 170, height: 132 },
       resultButton: { x: width / 2 - 82, y: height / 2 + 30, width: 164, height: 48 }
     };
   }
@@ -555,6 +669,44 @@ class PlantGuardWar {
     if (fill) {
       ctx.fill();
     }
+  }
+
+  drawSprite(ctx, spriteKey, x, y, width, height, fallbackColor) {
+    const img = this.app.assets && this.app.assets.getImage ? this.app.assets.getImage(spriteKey) : null;
+    if (img) {
+      ctx.drawImage(img, x, y, width, height);
+      return;
+    }
+    ctx.fillStyle = fallbackColor || '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x + width / 2, y + height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  explodeAt(x, y, radiusPx, damage) {
+    this.effects.push({ type: 'explosion', x, y, radius: radiusPx, tick: 0.32, total: 0.32 });
+    this.enemies.forEach((enemy) => {
+      const dx = enemy.x - x;
+      const dy = enemy.y - y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= radiusPx) {
+        const ratio = 1 - d / Math.max(1, radiusPx);
+        enemy.hp -= Math.round(damage * (0.55 + ratio * 0.45));
+      }
+    });
+  }
+
+  getEnemyStats(type) {
+    if (type === 'fast') {
+      return { hp: 78, speed: 48, damage: 10, width: 50, height: 62, sprite: 'enemyFast' };
+    }
+    if (type === 'armored') {
+      return { hp: 190, speed: 22, damage: 20, width: 62, height: 74, sprite: 'enemyArmored' };
+    }
+    if (type === 'tank') {
+      return { hp: 320, speed: 16, damage: 26, width: 70, height: 78, sprite: 'enemyTank' };
+    }
+    return { hp: 110, speed: 32, damage: 12, width: 54, height: 66, sprite: 'enemyZombie' };
   }
 }
 
