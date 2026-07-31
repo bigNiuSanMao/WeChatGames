@@ -22,7 +22,7 @@ class LoadingScene {
     ctx.fillStyle = '#f4ffe6';
     ctx.font = 'bold 44px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('家庭游戏大厅', width / 2, height / 2 - 70);
+    ctx.fillText('沃沃避难所', width / 2, height / 2 - 70);
 
     ctx.fillStyle = 'rgba(244,255,230,0.85)';
     ctx.font = '24px sans-serif';

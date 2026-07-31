@@ -41,11 +41,11 @@ class LobbyScene {
     ctx.fillStyle = '#f4ffe6';
     ctx.font = 'bold 44px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('家庭游戏大厅', width / 2, 72);
+    ctx.fillText('沃沃避难所', width / 2, 72);
 
     ctx.fillStyle = 'rgba(244, 255, 230, 0.82)';
     ctx.font = '22px sans-serif';
-    ctx.fillText('首页预留多个入口，后续可以继续增加其他微信小游戏', width / 2, 110);
+    ctx.fillText('避难所大厅已预留多个入口，后续可以继续增加其他微信小游戏', width / 2, 110);
 
     this.cards.forEach((card) => {
       ctx.fillStyle = 'rgba(9, 21, 14, 0.58)';

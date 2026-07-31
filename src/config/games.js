@@ -1,8 +1,8 @@
 module.exports = [
   {
     id: 'plant-guard-war',
-    title: '植物守卫战',
-    description: '无广告横屏塔防，守住花园通道。',
+    title: '沃沃避难所',
+    description: '无广告横屏塔防，守住避难所通道。',
     icon: 'plantShooter',
     accent: '#67d36f',
     status: 'active',

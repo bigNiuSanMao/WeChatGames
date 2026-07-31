@@ -1,7 +1,7 @@
 const PLANT_TYPES = {
   shooter: {
     key: 'shooter',
-    name: '豆豆花',
+    name: '沃沃哨卫',
     cost: 100,
     hp: 110,
     color: '#50c95a',
@@ -12,7 +12,7 @@ const PLANT_TYPES = {
   },
   sun: {
     key: 'sun',
-    name: '阳光树',
+    name: '补给花仓',
     cost: 50,
     hp: 90,
     color: '#ffd34d',
@@ -22,7 +22,7 @@ const PLANT_TYPES = {
   },
   wall: {
     key: 'wall',
-    name: '坚果藤',
+    name: '避难壁垒',
     cost: 75,
     hp: 260,
     color: '#d7a270',
@@ -30,7 +30,7 @@ const PLANT_TYPES = {
   },
   ice: {
     key: 'ice',
-    name: '寒冰草',
+    name: '霜冻岗哨',
     cost: 125,
     hp: 100,
     color: '#83e5ff',
@@ -43,7 +43,7 @@ const PLANT_TYPES = {
   },
   bomb: {
     key: 'bomb',
-    name: '爆爆果',
+    name: '轰鸣果仓',
     cost: 150,
     hp: 80,
     color: '#ff6b6b',
@@ -385,17 +385,17 @@ class PlantGuardWar {
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('植物守卫战', 34, 48);
+    ctx.fillText('沃沃避难所', 34, 48);
 
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.font = '18px sans-serif';
-    ctx.fillText('守住左侧花园，挡住全部来袭怪物', 34, 74);
+    ctx.fillText('守住左侧避难所，挡住全部来袭怪物', 34, 74);
 
     ctx.fillStyle = '#ffe179';
     this.roundRect(ctx, this.app.width - 300, 28, 112, 46, 16, true);
     ctx.fillStyle = '#493300';
     ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('阳光 ' + this.sun, this.app.width - 284, 58);
+    ctx.fillText('能量 ' + this.sun, this.app.width - 284, 58);
 
     ctx.fillStyle = '#8ef59b';
     this.roundRect(
@@ -475,7 +475,7 @@ class PlantGuardWar {
     ctx.font = '19px sans-serif';
     ctx.fillText('已击退 ' + this.defeated + ' / ' + this.targetDefeats, this.layout.infoCard.x + 18, this.layout.infoCard.y + 58);
     ctx.fillText('当前选择 ' + PLANT_TYPES[this.selectedPlant].name, this.layout.infoCard.x + 18, this.layout.infoCard.y + 86);
-    ctx.fillText('每 4 秒获得 25 阳光', this.layout.infoCard.x + 18, this.layout.infoCard.y + 114);
+    ctx.fillText('每 4 秒获得 25 能量', this.layout.infoCard.x + 18, this.layout.infoCard.y + 114);
   }
 
   drawEffects(ctx) {
@@ -586,7 +586,21 @@ class PlantGuardWar {
 
   getLayout() {
     const { width, height } = this.app;
-    const boardX = Math.max(220, width * 0.21);
+    const isTabletLike = width >= 1024 || width / Math.max(1, height) < 1.45;
+    const sidebarWidth = isTabletLike ? 220 : 170;
+    const cardHeight = isTabletLike ? 68 : 74;
+    const cardGap = isTabletLike ? 12 : 14;
+    const cardStartY = 122;
+    const cards = ['sun', 'shooter', 'wall', 'ice', 'bomb'].map((type, index) => ({
+      x: 24,
+      y: cardStartY + index * (cardHeight + cardGap),
+      width: sidebarWidth,
+      height: cardHeight,
+      type
+    }));
+    const infoTop = cardStartY + cards.length * (cardHeight + cardGap) + 10;
+    const infoHeight = Math.max(112, Math.min(150, height - infoTop - 28));
+    const boardX = sidebarWidth + 52;
     const boardY = 110;
     const boardWidth = width - boardX - 34;
     const boardHeight = height - boardY - 28;
@@ -604,16 +618,11 @@ class PlantGuardWar {
       boardHeight,
       cellWidth,
       cellHeight,
+      sidebarWidth,
       boardRect: { x: boardX, y: boardY, width: boardWidth, height: boardHeight },
       backButton: { x: width - 170, y: 28, width: 132, height: 46 },
-      seedCards: [
-        { x: 24, y: 122, width: 170, height: 74, type: 'sun' },
-        { x: 24, y: 210, width: 170, height: 74, type: 'shooter' },
-        { x: 24, y: 298, width: 170, height: 74, type: 'wall' },
-        { x: 24, y: 386, width: 170, height: 74, type: 'ice' },
-        { x: 24, y: 474, width: 170, height: 74, type: 'bomb' }
-      ],
-      infoCard: { x: 24, y: 566, width: 170, height: 132 },
+      seedCards: cards,
+      infoCard: { x: 24, y: infoTop, width: sidebarWidth, height: infoHeight },
       resultButton: { x: width / 2 - 82, y: height / 2 + 30, width: 164, height: 48 }
     };
   }
