@@ -1,0 +1,22 @@
+{
+  "description": "植物守卫战微信小游戏",
+  "appid": "touristappid",
+  "projectname": "plant-guard-arcade",
+  "compileType": "game",
+  "simulatorType": "game",
+  "libVersion": "3.7.8",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": false,
+    "minified": true,
+    "compileHotReLoad": true,
+    "ignoreUploadUnusedFiles": true,
+    "skylineRenderEnable": false
+  },
+  "condition": {}
+}
