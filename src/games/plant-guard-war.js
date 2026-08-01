@@ -2,55 +2,55 @@ const PLANT_TYPES = {
   shooter: {
     key: 'shooter',
     name: '沃沃哨卫',
-    cost: 90,
-    hp: 120,
+    cost: 80,
+    hp: 130,
     color: '#50c95a',
     sprite: 'plantShooter',
-    fireRate: 1.0,
-    damage: 28,
+    fireRate: 0.9,
+    damage: 32,
     bulletColor: '#2d7a36'
   },
   sun: {
     key: 'sun',
     name: '补给花仓',
-    cost: 50,
+    cost: 40,
     hp: 100,
     color: '#ffd34d',
     sprite: 'plantSun',
-    incomeRate: 4.5,
-    income: 30
+    incomeRate: 4,
+    income: 35
   },
   wall: {
     key: 'wall',
     name: '避难壁垒',
-    cost: 65,
-    hp: 320,
+    cost: 55,
+    hp: 380,
     color: '#d7a270',
     sprite: 'plantWall'
   },
   ice: {
     key: 'ice',
     name: '霜冻岗哨',
-    cost: 110,
-    hp: 110,
+    cost: 95,
+    hp: 120,
     color: '#83e5ff',
     sprite: 'plantIce',
-    fireRate: 1.35,
-    damage: 20,
-    slowFactor: 0.45,
-    slowDuration: 2.4,
+    fireRate: 1.15,
+    damage: 24,
+    slowFactor: 0.38,
+    slowDuration: 2.8,
     bulletColor: '#49b8ff'
   },
   bomb: {
     key: 'bomb',
     name: '轰鸣果仓',
-    cost: 135,
+    cost: 115,
     hp: 80,
     color: '#ff6b6b',
     sprite: 'plantBomb',
-    armTime: 0.55,
-    radius: 1.3,
-    damage: 150
+    armTime: 0.4,
+    radius: 1.45,
+    damage: 180
   }
 };
 
@@ -62,7 +62,7 @@ class PlantGuardWar {
   }
 
   restart() {
-    this.sun = 225;
+    this.sun = 300;
     this.selectedPlant = 'shooter';
     this.plants = [];
     this.enemies = [];
@@ -73,7 +73,7 @@ class PlantGuardWar {
     this.spawnElapsed = 0;
     this.spawned = 0;
     this.defeated = 0;
-    this.targetDefeats = 15;
+    this.targetDefeats = 12;
     this.state = 'playing';
     this.globalSunTick = 0;
     this.layout = null;
@@ -91,13 +91,18 @@ class PlantGuardWar {
     this.spawnElapsed += dt;
     this.globalSunTick += dt;
 
-    if (this.globalSunTick >= 3.5) {
+    if (this.globalSunTick >= 3) {
       this.globalSunTick = 0;
-      this.sun += 30;
+      this.sun += 35;
     }
 
-    const spawnInterval = Math.max(1.8, 3.4 - this.defeated * 0.05);
-    if (this.spawned < this.targetDefeats && this.spawnElapsed >= spawnInterval) {
+    const spawnInterval = Math.max(2.2, 4.2 - this.defeated * 0.06);
+    const maxAliveEnemies = this.defeated < 6 ? 3 : 4;
+    if (
+      this.spawned < this.targetDefeats &&
+      this.enemies.length < maxAliveEnemies &&
+      this.spawnElapsed >= spawnInterval
+    ) {
       this.spawnElapsed = 0;
       this.spawnEnemy();
     }
@@ -258,9 +263,9 @@ class PlantGuardWar {
   spawnEnemy() {
     const row = Math.floor(Math.random() * this.layout.rows);
     const roll = Math.random();
-    const strong = this.spawned > 7 && roll > 0.8;
-    const fast = this.spawned > 4 && roll > 0.58 && roll <= 0.8;
-    const tank = this.spawned > 12 && roll > 0.92;
+    const strong = this.spawned > 8 && roll > 0.84;
+    const fast = this.spawned > 5 && roll > 0.62 && roll <= 0.84;
+    const tank = this.spawned > 20 && roll > 0.97;
     this.spawned += 1;
     const type = tank ? 'tank' : strong ? 'armored' : fast ? 'fast' : 'walker';
     const stats = this.getEnemyStats(type);
@@ -327,7 +332,7 @@ class PlantGuardWar {
       hp: type.hp,
       x: center.x,
       y: center.y,
-      cooldown: type.key === 'shooter' ? 0.25 : type.key === 'ice' ? 0.5 : type.key === 'sun' ? 2.5 : 0,
+      cooldown: type.key === 'shooter' ? 0.2 : type.key === 'ice' ? 0.4 : type.key === 'sun' ? 2 : 0,
       armTick: type.key === 'bomb' ? PLANT_TYPES.bomb.armTime : 0
     };
 
@@ -475,7 +480,7 @@ class PlantGuardWar {
     ctx.font = '19px sans-serif';
     ctx.fillText('已击退 ' + this.defeated + ' / ' + this.targetDefeats, this.layout.infoCard.x + 18, this.layout.infoCard.y + 58);
     ctx.fillText('当前选择 ' + PLANT_TYPES[this.selectedPlant].name, this.layout.infoCard.x + 18, this.layout.infoCard.y + 86);
-    ctx.fillText('每 3.5 秒获得 30 能量', this.layout.infoCard.x + 18, this.layout.infoCard.y + 114);
+    ctx.fillText('每 3 秒获得 35 能量', this.layout.infoCard.x + 18, this.layout.infoCard.y + 114);
   }
 
   drawEffects(ctx) {
@@ -707,15 +712,15 @@ class PlantGuardWar {
 
   getEnemyStats(type) {
     if (type === 'fast') {
-      return { hp: 64, speed: 40, damage: 8, width: 50, height: 62, sprite: 'enemyFast' };
+      return { hp: 52, speed: 34, damage: 7, width: 50, height: 62, sprite: 'enemyFast' };
     }
     if (type === 'armored') {
-      return { hp: 150, speed: 19, damage: 15, width: 62, height: 74, sprite: 'enemyArmored' };
+      return { hp: 120, speed: 16, damage: 12, width: 62, height: 74, sprite: 'enemyArmored' };
     }
     if (type === 'tank') {
-      return { hp: 250, speed: 13, damage: 18, width: 70, height: 78, sprite: 'enemyTank' };
+      return { hp: 180, speed: 11, damage: 14, width: 70, height: 78, sprite: 'enemyTank' };
     }
-    return { hp: 88, speed: 26, damage: 9, width: 54, height: 66, sprite: 'enemyZombie' };
+    return { hp: 72, speed: 22, damage: 7, width: 54, height: 66, sprite: 'enemyZombie' };
   }
 }
 
